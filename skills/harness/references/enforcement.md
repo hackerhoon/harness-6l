@@ -488,15 +488,75 @@ macOS Seatbelt / Linux·WSL2 bubblewrap로 **Bash 서브프로세스 전체**(�
 
 ---
 
-### 상태 파일은 작업마다 쌓인다
+### 상태 파일·원장 정리 — 작업 첫 배치에서 자동
 
-per-task 키 때문에 `_workspace/runs/`에 작업(프롬프트 턴)마다 `<sid>-<pid>.{writes,batches,start,tok0,dirty,tested}` 최대 6개가 생기고 자동 삭제되지 않는다. 원장(`<sid>.jsonl`)은 세션당 1개다. 월간 위생 때 함께 정리한다:
+per-task 키 때문에 `_workspace/runs/`에 작업마다 `<sid>-<pid>.{writes,batches,start,tok0,dirty,tested}`가 생긴다. `loop_budget.sh`가 **작업의 첫 배치**(`.start` 생성 시점)에 한 번 `gc_runs`를 돌린다 — 매 hook 마다 `find`를 돌리지 않기 위해서다.
 
-```bash
-find _workspace/runs -type f -mtime +30 -delete
+| 대상 | 정책 | 환경변수(기본) |
+|---|---|---|
+| 상태 파일 6종 | mtime 기준 TTL 초과 삭제 | `HARNESS_STATE_TTL_DAYS` (7) |
+| 원장 `<sid>.jsonl` | 크기 초과 시 `.jsonl.1`로 1회 로테이션(이전 `.1`은 덮어씀) | `HARNESS_LEDGER_MAX_KB` (10240) |
+| 원장·`.1` | mtime 기준 TTL 초과 삭제 | `HARNESS_LEDGER_TTL_DAYS` (30) |
+| 작업 원장 `<sid>.tasks.jsonl` | 위 원장과 같은 로테이션·TTL 적용 — 장기 추세는 `.1`을 따로 보관 | 동일 |
+
+원장이 로테이션되면 `harness_report.sh`는 현재 파일만 읽는다 — 장기 추세가 필요하면 `.1`을 따로 보관한다.
+
+### fail-closed — 무인·CI 용 opt-in
+
+기본은 **fail-open**이다: `jq`가 없거나 `CLAUDE_PROJECT_DIR`가 없거나 `_workspace/runs/`를 만들 수 없으면 경고하고 통과시킨다. 세션을 벽돌로 만드는 것보다 낫고, 그 대가로 `enforced_by`를 `none`으로 정직하게 적는다.
+
+**`HARNESS_FAIL_CLOSED=1`**을 주면 같은 상황을 "조용한 통과"가 아니라 **정지**로 다룬다. 사람이 보고 있지 않은 무인 실행이나 CI에서, 의존성 부재가 보호 없이 계속 도는 것보다 멈추는 게 안전할 때 쓴다.
+
+| 이벤트 | fail-closed 동작 |
+|---|---|
+| PreToolUse (`policy_gate`) | `deny` JSON — 도구 호출 차단 |
+| PostToolBatch (`loop_budget`) | `exit 2` — 루프 중단 |
+| Stop / SubagentStop (`test_gate`) | `exit 2` — 완료 차단. `stop_hook_active`면 통과(8회 캡 존중) |
+| PostToolUse / PostToolUseFailure / PermissionDenied (`audit_log`) | 차단 불가 이벤트 — 경고만 |
+
+이벤트명은 **bash 내장 정규식**(`[[ =~ ]]`)으로 읽는다 — jq가 없는 환경에서는 grep·sed도 없을 수 있다(CI가 grep 없는 PATH로 검증한다). `HARNESS_FAIL_CLOSED`는 `1`·`true`·`yes`·`on`을 받는다. fail-closed 상태의 hook은 "강제되고 있다"가 아니라 "**아무 작업도 못 하게 막고 있다**"이다 — 의존성을 고치는 것이 목적이지 이 상태로 운영하는 것이 아니다.
+
+### 작업 완료 원장과 스코어카드 — "진짜 지표"의 데이터 소스
+
+`test_gate.sh`가 **`Stop`**(SubagentStop 제외)에서 작업 1건을 `<sid>.tasks.jsonl`에 기록한다. 작업 = 사용자 프롬프트 1턴.
+
+```jsonl
+{"ts":"…","task":"<sid>-<pid>","event":"task_blocked","reason":"untested"}
+{"ts":"…","task":"<sid>-<pid>","event":"task_end","dirty":true,"tested":true,"denied":0,"tool_failures":1,"verdict":"complete-tested"}
 ```
 
-로테이션·자동 정리는 다음 라운드 후보다.
+| verdict | 뜻 |
+|---|---|
+| `complete-tested` | 소스를 수정했고 테스트를 돌렸고 권한 차단이 없었다 — **논문의 "진짜 지표"에 세는 것** |
+| `complete` | 소스 수정 없이 끝났다(질문 응답 등). 권한 차단 없음 |
+| `complete-escalated` | 이 작업에서 권한 경계가 1회 이상 막았다 — 에스컬레이션으로 집계 |
+| `complete-forced` | Stop hook 8회 캡을 넘겨 더 이상 차단할 수 없었다 — 강제 종료. 진짜 지표에 세지 않는다 |
+
+모든 원장 레코드에 `task` 키가 있어 작업 단위로 실패·차단을 묶을 수 있다.
+
+```bash
+"${CLAUDE_SKILL_DIR}"/assets/scripts/harness_report.sh [project-dir]
+```
+
+리포터가 계산하는 것: 진짜 지표(complete-tested 수) · 작업 수 · 완료율 · 테스트 증거 동반 완료율 · 에스컬레이션률 · 허위 완료 차단 횟수 · 도구 실패 수 · 권한 차단 수 · 평균 복구 시간(실패→**같은 세션 파일**의 다음 성공, 초 — 세션을 섞지 않는다) · 건너뛴 원장 줄 수(깨진 줄은 건너뛰고 경고한다 — `jq -s`였다면 전체를 잃었다). 원장은 파일로 넘겨 ARG_MAX를 넘지 않는다. **재작업률과 작업당 비용은 여기서 나오지 않는다** — OTel 또는 `claude -p --output-format json`이 필요하다. `null`은 "데이터 없음"이지 0이 아니다.
+
+이 원장은 hook이 등록돼 발화할 때만 존재한다. 등록 전에는 스코어카드 전체가 `none`이고 리포터는 그렇게 말한다.
+
+### 환경변수 한눈에
+
+| 변수 | 기본 | 스크립트 |
+|---|---|---|
+| `HARNESS_MAX_WRITES` | 20 | policy_gate |
+| `HARNESS_MAX_SECONDS` / `HARNESS_MAX_BATCHES` / `HARNESS_MAX_TOKENS` | 1800 / 50 / 100000 | loop_budget |
+| `HARNESS_TEST_PATTERN` / `HARNESS_SRC_PATTERN` | 주요 테스트 러너 / `src\|lib\|app\|tests?…` | test_gate |
+| `HARNESS_FAIL_CLOSED` | 0 | 전부 |
+| `HARNESS_STATE_TTL_DAYS` / `HARNESS_LEDGER_TTL_DAYS` / `HARNESS_LEDGER_MAX_KB` | 7 / 30 / 10240 | loop_budget(gc) |
+
+`settings.json`의 `env` 블록이나 셸에서 준다. 프로젝트 `.claude/settings.json`의 `env`는 워크스페이스 신뢰 없이도 적용된다.
+
+### 트리거 회귀 스위트 실행 배선
+
+`assets/scripts/run_trigger_eval.sh`가 `claude plugin eval`이 쓸 수 있으면 `evals/trigger_eval.json`을 돌리고(`--threshold 0.9 --no-publish`), early-access 게이트 뒤에 있으면 **건수를 표기하고 정직하게 스킵**한다. CI에서 `claude` CLI가 없으면 역시 스킵이다. 게이트가 열리는 날 스크립트를 바꾸지 않아도 된다.
 
 ## 흔한 함정
 

@@ -2,6 +2,23 @@
 
 이 프로젝트는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [1.2.0] - 2026-09-02
+
+1.1.0이 「다음 라운드 후보」로 남긴 5건을 전부 처리했다. 새 hook 동작은 실기 시험(fail-closed 3경로·GC TTL/로테이션·작업 판정 4종·리포터·경합·비밀 회귀)을 거쳤다.
+
+### Added
+- **`HARNESS_FAIL_CLOSED=1`** — 무인·CI용 opt-in. jq/`CLAUDE_PROJECT_DIR`/디렉토리 부재 시 통과 대신 정지(PreToolUse→deny, PostToolBatch/Stop→exit 2, 차단 불가 이벤트는 경고). 이벤트명은 jq·grep·sed 없이 bash 내장 정규식으로 읽는다. `1`/`true`/`yes`/`on` 허용
+- **상태 파일·원장 자동 정리** — 작업 첫 배치에서 `gc_runs`: 상태 파일 7일 TTL, 원장 10MB 로테이션(`.1`)·30일 TTL. 환경변수로 조정
+- **작업 완료 원장 `<sid>.tasks.jsonl`** — `test_gate.sh`가 Stop에서 작업 1건을 기록(verdict: `complete-tested` / `complete` / `complete-escalated` / `complete-forced`, `task_blocked`). 모든 원장 레코드에 `task` 키. `tool_failures`는 PermissionDenied를 세지 않는다
+- **`assets/scripts/harness_report.sh`** — 논문의 "진짜 지표"(테스트 증거 동반·권한 차단 없이 완료된 작업 수)와 완료율·에스컬레이션률·허위 완료 차단·복구 시간을 원장에서 계산. 재작업률·비용은 계측 불가로 명시
+- **`assets/scripts/run_trigger_eval.sh`** — `claude plugin eval` 게이트를 감지해 열리면 `evals/trigger_eval.json`을 실행, 아니면 건수 표기 후 스킵
+- **`references/multi-agent-team.md`** — 에이전트 팀 모드(TeamCreate/SendMessage) 전용 내용을 분리. 서브에이전트 모드 호출에서 로드되지 않음
+- `enforcement.md` 「환경변수 한눈에」「fail-closed」「작업 완료 원장과 스코어카드」「상태 파일·원장 정리」절
+
+### Changed
+- `layers.md` L6 계측 소스 표: 완료율·복구시간·에스컬레이션률의 소스가 `harness_report.sh`로 실재
+- `scripts/check.sh` 80+ 항목, CI에 fail-closed·리포터 실기 추가
+
 ## [1.1.0] - 2026-09-02
 
 2라운드 적대적 검증(논문 원문 대조 · 실사용 시뮬레이션 · 트리거/경제성 · 보안/이식성 4개 검사관 + 독립 재검증)의 결과. 1.0.0의 hook은 **문서대로 설치하면 1분 안에 에이전트를 정지시켰다.** 1.0.0 사용자는 반드시 갱신하라.

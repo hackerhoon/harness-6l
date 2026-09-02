@@ -4,7 +4,7 @@
 _HOOK_NAME=policy_gate; . "$(dirname "$0")/_common.sh"
 MAX_WRITES="${HARNESS_MAX_WRITES:-20}"
 TOOL=$(tool_name)
-jq -cn --arg ts "$(TS)" --arg t "$TOOL" --arg r "$(tool_ref)" '{ts:$ts,event:"pre_tool",tool:$t,ref:$r}' >> "$LEDGER" 2>/dev/null
+jq -cn --arg ts "$(TS)" --arg k "$KEY" --arg t "$TOOL" --arg r "$(tool_ref)" '{ts:$ts,task:$k,event:"pre_tool",tool:$t,ref:$r}' >> "$LEDGER" 2>/dev/null
 case "$TOOL" in
   Edit|Write|NotebookEdit)
     N=$(bump "$DIR/${KEY}.writes")

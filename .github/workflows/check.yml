@@ -29,4 +29,14 @@ jobs:
           if echo '{"session_id":"ci4","prompt_id":"p1","hook_event_name":"Stop","stop_hook_active":false}' | bash $H/test_gate.sh; then echo "test_gate 미차단"; exit 1; fi
           echo '{"session_id":"ci5","prompt_id":"p1","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"AWS_SECRET_ACCESS_KEY=abc aws s3 ls"},"tool_response":{}}' | bash $H/audit_log.sh
           if grep -q 'abc' "$T/_workspace/runs/ci5.jsonl"; then echo "원장에 비밀 유출"; exit 1; fi
+          # fail-closed
+          B=$(mktemp -d); for c in bash cat tr cut date wc mkdir awk sort head dirname env printf echo find mv rm; do ln -s "$(type -P $c)" "$B/$c"; done   # jq·grep·sed 의도적 제외
+          if echo '{"session_id":"fc","prompt_id":"p1","hook_event_name":"PostToolBatch"}' | HARNESS_FAIL_CLOSED=1 PATH="$B" bash $H/loop_budget.sh 2>/dev/null; then echo "fail-closed 미차단"; exit 1; fi
+          echo '{"session_id":"fc","prompt_id":"p1","hook_event_name":"PreToolUse","tool_name":"Edit"}' | HARNESS_FAIL_CLOSED=1 PATH="$B" bash $H/policy_gate.sh | grep -q '"deny"' || { echo "fail-closed deny 없음"; exit 1; }
+          # 작업 완료 원장 + 리포터
+          echo '{"session_id":"rp","prompt_id":"p1","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"src/a.py"}}' | bash $H/test_gate.sh
+          echo '{"session_id":"rp","prompt_id":"p1","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"pytest -q"}}' | bash $H/test_gate.sh
+          echo '{"session_id":"rp","prompt_id":"p1","hook_event_name":"Stop","stop_hook_active":false}' | bash $H/test_gate.sh
+          bash skills/harness/assets/scripts/harness_report.sh "$T" | grep -q '"진짜 지표[^"]*": 1' || { echo "리포터 진짜 지표 ≠ 1"; exit 1; }
+          bash skills/harness/assets/scripts/run_trigger_eval.sh . | grep -q 'SKIP'
           echo "hook 시험 통과"

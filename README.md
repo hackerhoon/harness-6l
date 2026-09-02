@@ -4,6 +4,8 @@
 
 에이전트를 "잘 굴러가게" 만드는 것은 프롬프트가 아니라 그 주위의 인프라다. 이 스킬은 그 인프라를 여섯 계층 — **가이드 · 센서 · 에이전틱 루프 · 메모리 · 권한 · 관찰가능성** — 으로 나누어 구성·점검·진화시킨다.
 
+논문 **『Harness Engineering — Agent = Model + Harness: The 6-Layer Production Playbook』**(2026년 8월, 독립 편집본)의 6계층 아키텍처를 참고해, 그 계층들을 Claude Code가 **실제로 강제할 수 있는 수단**에 대응시킨 구현이다.
+
 > **English:** A Claude Code skill for six-layer agent-harness engineering (guides, sensors, agentic loop, memory, permissions, observability). It maps each layer onto the mechanisms that Claude Code can *actually* enforce — `settings.json` permission rules, `PreToolUse`/`PostToolBatch` hooks, sub-agent frontmatter, the OS sandbox — and requires every budget line to declare `enforced_by`, so a control that is merely documented is never mistaken for one that is enforced. **The skill content is written in Korean.**
 
 ---
@@ -93,7 +95,8 @@ skills/harness/
 │   ├── layers.md                 6계층 규범과 Claude Code 실현 수단
 │   ├── enforcement.md            settings.json 문법 · hook 규약 · 서브에이전트 · 샌드박스
 │   ├── ratchet.md                실패를 영구 인프라로 전환하는 절차 · 운영/유지보수
-│   ├── multi-agent.md            팀 · 오케스트레이터 · 타입 핸드오프 · 독립 검증자
+│   ├── multi-agent.md            패턴 · 서브에이전트 오케스트레이터 · 핸드오프 · 독립 검증자
+│   ├── multi-agent-team.md       에이전트 팀 모드(TeamCreate/SendMessage) — 팀 설계 시에만 로드
 │   ├── skill-authoring.md        스킬 작성 · 센서로서의 스킬 평가 · 트리거 회귀
 │   ├── verifier-agent.md         검증 에이전트 — 스택 중립 골격, 실제 버그 7건
 │   └── verifier-web-checklist.md 웹(Next.js/React) 경계면 체크리스트 — 웹 프로젝트에서만 로드
@@ -101,7 +104,8 @@ skills/harness/
 │   ├── claude-md-harness-section.md
 │   ├── settings-permissions.template.json
 │   ├── workspace-harness.template.md
-│   └── hooks/{_common,policy_gate,loop_budget,audit_log,test_gate}.sh + SHA256SUMS
+│   ├── hooks/{_common,policy_gate,loop_budget,audit_log,test_gate}.sh + SHA256SUMS
+│   └── scripts/{harness_report,run_trigger_eval}.sh   스코어카드 리포터 · eval 배선
 └── evals/trigger_eval.json       트리거 회귀 스위트 (should 12 / near-miss 12)
 ```
 
@@ -118,7 +122,9 @@ hook 4종은 **선택**이다. 설치하지 않으면 해당 예산은 `enforced
 
 - 카운터는 `session_id-prompt_id` 키로 **작업(사용자 프롬프트 1턴) 단위**다. 다음 프롬프트에서 자연 리셋된다.
 - 토큰 예산은 "유니크 요청의 input + output" 증가분이다. 캐시 필드를 세면 실제 세션에서 예산의 14,000배가 나온다(1.0.0의 결함).
-- `jq`가 없거나 `CLAUDE_PROJECT_DIR`가 없으면 **경고를 내고 통과시킨다(fail-open)**. 그 환경에서 hook 예산의 `enforced_by`는 `none`이다. 부분 강제는 없다.
+- `jq`가 없거나 `CLAUDE_PROJECT_DIR`가 없으면 **경고를 내고 통과시킨다(fail-open)**. 그 환경에서 hook 예산의 `enforced_by`는 `none`이다. 부분 강제는 없다. 무인·CI에서는 `HARNESS_FAIL_CLOSED=1`로 통과 대신 **정지**시킬 수 있다.
+- 상태 파일은 7일, 원장은 30일 TTL로 작업 첫 배치에서 자동 정리되고 원장은 10MB에서 로테이션된다(`HARNESS_*_TTL_DAYS`, `HARNESS_LEDGER_MAX_KB`).
+- `assets/scripts/harness_report.sh`가 원장에서 **진짜 지표**(테스트 증거를 동반하고 권한 차단 없이 끝난 작업 수)·완료율·에스컬레이션률·복구시간을 계산한다.
 - **hook은 설치만으로 발화하지 않는다.** 사용자가 `settings.json`에 hooks 블록을 등록해야 한다. 등록은 에이전트가 못 하므로 **구축 완료 시점의 hook 예산은 항상 `none`**이고, 스킬은 그렇게 적는다.
 
 ---
@@ -149,7 +155,7 @@ hook 4종은 **선택**이다. 설치하지 않으면 해당 예산은 `enforced
 - **hook은 사용자 권한으로, 워크스페이스 신뢰 없이 실행된다.** 남의 저장소를 열 때 `.claude/hooks/`에 이 스킬의 파일명을 흉내 낸 스크립트가 있을 수 있다. `assets/hooks/SHA256SUMS`로 무결성을 확인하고, 모르는 저장소의 hook은 **열기 전에 읽어라.**
 - **입력은 정제된다.** `session_id`의 `../` 경로 탈출, NUL 바이트 위장(`Read\0BAD`)은 파일명·원장에 도달하지 못한다.
 - **`rm`은 패턴으로 못 막는다.** `Bash(rm -rf *)` deny는 `rm -fr`을 통과시킨다(실증). 템플릿은 `rm` 전체를 ask로 두고, 내장 critical-path 가드(루트·홈·cwd)에 나머지를 맡긴다.
-- **fail-open은 설계다.** 강제할 수 없는 상황에서 세션을 벽돌로 만드는 대신 경고하고 통과시킨다. 그 대가로 `enforced_by`가 정직해야 한다 — 그것이 이 스킬의 중심 장치다.
+- **fail-open은 설계다.** 강제할 수 없는 상황에서 세션을 벽돌로 만드는 대신 경고하고 통과시킨다. 그 대가로 `enforced_by`가 정직해야 한다 — 그것이 이 스킬의 중심 장치다. 사람이 없는 실행에서는 `HARNESS_FAIL_CLOSED=1`로 반대 선택을 할 수 있다.
 
 상세는 `references/enforcement.md`의 「hook 보안·한계」.
 
@@ -162,7 +168,7 @@ hook 4종은 **선택**이다. 설치하지 않으면 해당 예산은 `enforced
 - hook 4종은 `bash 3.2+`와 `jq`에 의존한다. 없으면 전부 **fail-open**(경고 출력)이며 그 환경에서 `enforced_by`는 `none`이다.
 - `loop_budget.sh`의 배치 카운터는 도구 호출 수가 아니라 도구 **배치** 수다. 한 배치에 여러 도구가 들어갈 수 있다.
 - 트립와이어 "센서 통과율 하락"은 도구 실패율의 프록시일 뿐 센서 판정을 구분하지 못한다.
-- `claude plugin eval`은 early-access라 `evals/trigger_eval.json`은 파일로만 존재한다. 실행은 게이트가 열리면.
+- `claude plugin eval`은 early-access다. `assets/scripts/run_trigger_eval.sh`가 게이트를 감지해 열리면 실행하고 아니면 스킵한다.
 - 검증 기준은 **Claude Code 2.1.252~2.1.258 / macOS + Debian·Alpine**이다. 권한·hook 문법은 버전에 따라 달라질 수 있다.
 - 스킬 본문은 **한국어**다.
 
@@ -174,4 +180,6 @@ Apache License 2.0.
 
 이 프로젝트는 [revfactory/harness](https://github.com/revfactory/harness) 1.2.0 (Copyright 2025 robin, Apache-2.0)의 **파생 저작물**이다. 변경한 파일은 각 파일 끝에 변경 고지를 달았고, 전체 내역은 [`NOTICE`](NOTICE)에 있다.
 
-6계층 구조·래칫 원리·guides-and-sensors 분류·통제 신뢰도 사다리는 공개된 엔지니어링 글에서 온 개념이다 — Mitchell Hashimoto(래칫), Birgitta Böckeler·Martin Fowler(guides and sensors), OpenAI Codex 필드 리포트, LangChain 엔지니어링, Lauren Tan·Cursor(반복 리뷰 코멘트의 구조화). 아이디어 출처로 밝히는 것이며 본문을 옮기지 않았다. 이 프로젝트는 위 어떤 조직과도 제휴·보증 관계가 없다.
+**참고 문헌:** 이 스킬의 6계층 구조·래칫 원리·통제 신뢰도 사다리·빌드 경로·결정 프레임워크는 논문 **『Harness Engineering — Agent = Model + Harness: The 6-Layer Production Playbook』**(Production Agent Engineering Practice 2026, 2026년 8월 독립 편집본)을 참고해 만들었다. 논문 본문은 이 저장소에 포함하지 않았고, 논문의 표기대로 그 문서는 Google·OpenAI·Anthropic·HashiCorp 어디와도 제휴·보증 관계가 없다. 스킬의 절 인용(`논문 §III(가이드)` 등)은 그 논문의 절 번호다.
+
+그 논문 자체가 종합한 1차 자료 — 6계층 구조·래칫 원리·guides-and-sensors 분류·통제 신뢰도 사다리는 공개된 엔지니어링 글에서 온 개념이다 — Mitchell Hashimoto(래칫), Birgitta Böckeler·Martin Fowler(guides and sensors), OpenAI Codex 필드 리포트, LangChain 엔지니어링, Lauren Tan·Cursor(반복 리뷰 코멘트의 구조화). 아이디어 출처로 밝히는 것이며 본문을 옮기지 않았다. 이 프로젝트는 위 어떤 조직과도 제휴·보증 관계가 없다.

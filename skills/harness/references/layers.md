@@ -401,7 +401,7 @@ Claude Code에 이 분리를 강제하는 네이티브 프리미티브는 없다
 | 가이드 증가율 (감소해야 정상) | `CLAUDE.md`/`.claude/rules/` git 히스토리 | **네이티브 있음** |
 | 재작업률 | OTel `code_edit_tool.decision` | **OTel 필요** |
 | 작업당 비용 | `-p --output-format json`의 `total_cost_usd` 또는 OTel | **대화형 transcript에 cost 필드 없음** |
-| 완료율 / 복구시간 | 없음 | **네이티브 소스 없음.** 하네스가 원장을 써야만 존재한다 — 지표가 아니라 산출물 요구사항으로 다룬다 |
+| 완료율 / 복구시간 | `harness_report.sh` — `<sid>.tasks.jsonl`의 `task_end` (hook 등록 후) | **네이티브 소스 없음.** 하네스가 원장을 써야만 존재한다 — 지표가 아니라 산출물 요구사항으로 다룬다 |
 
 위 다섯 줄은 소스를 켜거나 등록하면 얻을 수 있고, 마지막 줄은 하네스가 직접 만들어야 존재한다. 원장을 만들 때의 기록 규범은 L5「원장은 증거이자 공격면이다」, 데이터 소스의 실제 경로는 `enforcement.md`「관찰가능성 데이터 소스」.
 

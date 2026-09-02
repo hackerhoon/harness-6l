@@ -12,7 +12,7 @@ check(){ if eval "$2" >/dev/null 2>&1; then ok "$1"; else bad "$1"; fi; }
 
 echo "== 구조 =="
 check "SKILL.md 존재"                       "[ -f '$SK/SKILL.md' ]"
-check "references 7개"                      "[ \$(ls '$SK/references'/*.md | wc -l) -eq 7 ]"
+check "references 8개"                      "[ \$(ls '$SK/references'/*.md | wc -l) -eq 8 ]"
 check "hooks 4개 실행 가능 + _common.sh"     "[ \$(find '$SK/assets/hooks' -name '*.sh' -perm -u+x | wc -l) -eq 4 ] && [ -f '$SK/assets/hooks/_common.sh' ]"
 for f in "$SK"/assets/hooks/*.sh; do check "bash 문법: $(basename "$f")" "bash -n '$f'"; done
 check "settings 템플릿 JSON 유효"           "python3 -c \"import json;json.load(open('$SK/assets/settings-permissions.template.json'))\""
@@ -56,6 +56,15 @@ check "템플릿: 결정 필터·가지치기 섹션"        "grep -q '## 결정
 check "논문 §N(아라비아) 인용 잔존 없음"       "! grep -rEq '논문 ?§[0-9]' '$SK/SKILL.md' '$SK/references' '$ROOT/docs' '$ROOT/README.md'"
 check "docs: hook 3종 표현 잔존 없음"          "! grep -rq 'hook 3종' '$ROOT/README.md' '$ROOT/docs'"
 check "docs: PermissionDenied 등록 안내"        "grep -q 'PermissionDenied' '$ROOT/docs/quickstart.md'"
+echo "== 3라운드(1.2.0) =="
+for f in "$SK"/assets/scripts/*.sh; do check "bash 문법: scripts/$(basename "$f")" "bash -n '$f'"; done
+check "fail-closed 분기 존재"                "grep -q 'HARNESS_FAIL_CLOSED' '$SK/assets/hooks/_common.sh' && grep -q 'HARNESS_FAIL_CLOSED' '$SK/references/enforcement.md'"
+check "gc_runs 존재·호출"                    "grep -q 'gc_runs()' '$SK/assets/hooks/_common.sh' && grep -q 'gc_runs' '$SK/assets/hooks/loop_budget.sh'"
+check "작업 완료 원장(task_end)"              "grep -q 'task_end' '$SK/assets/hooks/test_gate.sh' && grep -q 'task_end' '$SK/references/enforcement.md'"
+check "원장 레코드 task 키"                  "grep -q 'task:\$k' '$SK/assets/hooks/audit_log.sh' && grep -q 'task:\$k' '$SK/assets/hooks/policy_gate.sh'"
+check "리포터 존재"                          "[ -x '$SK/assets/scripts/harness_report.sh' ]"
+check "eval 배선 존재"                       "[ -x '$SK/assets/scripts/run_trigger_eval.sh' ]"
+check "팀 모드 분리 파일"                     "[ -f '$SK/references/multi-agent-team.md' ] && grep -q 'multi-agent-team.md' '$SK/references/multi-agent.md' && grep -q 'multi-agent-team.md' '$SK/SKILL.md'"
 echo "== 1라운드 확정 사항 =="
 check "금지: \${CLAUDE_PLUGIN_ROOT} 0건"     "! grep -rq 'CLAUDE_PLUGIN_ROOT' '$SK'"
 check "금지: _harness/ 0건"                 "! grep -rq '_harness/' '$SK'"
@@ -84,7 +93,7 @@ for f in "$SK"/references/*.md; do
 done
 
 echo "== 라이선스 고지 (Apache-2.0 §4(b)) =="
-for f in SKILL.md references/multi-agent.md references/skill-authoring.md references/verifier-agent.md references/verifier-web-checklist.md references/ratchet.md; do
+for f in SKILL.md references/multi-agent.md references/skill-authoring.md references/verifier-agent.md references/verifier-web-checklist.md references/multi-agent-team.md references/ratchet.md; do
   check "변경 고지: $f" "grep -q '출처 및 변경 고지' '$SK/$f'"
 done
 check "NOTICE 존재"                          "[ -f '$ROOT/NOTICE' ]"

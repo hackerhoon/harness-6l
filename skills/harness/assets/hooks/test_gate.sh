@@ -18,10 +18,25 @@ case "$EV" in
     esac
     exit 0 ;;
   Stop|SubagentStop)
-    [ "$(jq -r '.stop_hook_active // false' <<<"$INPUT")" = "true" ] && exit 0
-    if [ -f "$DIRTY" ] && [ ! -f "$TESTED" ]; then
+    if [ "$(jq -r '.stop_hook_active // false' <<<"$INPUT")" = "true" ]; then
+      # 8회 캡 탈출: 차단을 더 못 한다. 작업을 기록은 한다 — 강제 종료로.
+      [ "$EV" = Stop ] && jq -cn --arg ts "$(TS)" --arg k "$KEY" '{ts:$ts,task:$k,event:"task_end",dirty:true,tested:false,denied:0,tool_failures:0,verdict:"complete-forced"}' >> "$DIR/${SID}.tasks.jsonl"
+      rm -f "$DIRTY" "$TESTED"; exit 0
+    fi
+    D=0; [ -f "$DIRTY" ] && D=1;  T=0; [ -f "$TESTED" ] && T=1
+    if [ "$D" = 1 ] && [ "$T" = 0 ]; then
+      [ "$EV" = Stop ] && jq -cn --arg ts "$(TS)" --arg k "$KEY" '{ts:$ts,task:$k,event:"task_blocked",reason:"untested"}' >> "$DIR/${SID}.tasks.jsonl"
       echo "차단: 소스를 수정했으나 이 작업에서 TEST 명령(패턴: $TEST_RE)이 실행된 기록이 없다. 완료 보고 전에 CLAUDE.md 의 TEST 명령을 실행하고 결과를 확인하라." >&2
       exit 2
+    fi
+    # 작업 완료 기록 — 논문의 "진짜 지표"(수동 개입 없이 완료되고 증거를 낸 작업 수)의 유일한 데이터 소스.
+    # 작업 = 사용자 프롬프트 1턴(Stop 에서만 기록, SubagentStop 은 제외). denied = 이 작업에서 권한 경계가 막은 횟수.
+    if [ "$EV" = Stop ]; then
+      DEN=$(jq -c --arg k "$KEY" 'select(.task==$k and .denied==true)' "$LEDGER" 2>/dev/null | wc -l | tr -d ' ')
+      FAILS=$(jq -c --arg k "$KEY" 'select(.task==$k and .event=="PostToolUseFailure")' "$LEDGER" 2>/dev/null | wc -l | tr -d ' ')   # PermissionDenied 는 ok:false 지만 도구 실패가 아니다
+      V=complete; [ "$DEN" -gt 0 ] && V=complete-escalated; [ "$D" = 1 ] && [ "$T" = 1 ] && [ "$V" = complete ] && V=complete-tested
+      jq -cn --arg ts "$(TS)" --arg k "$KEY" --argjson d "$D" --argjson t "$T" --argjson den "$DEN" --argjson f "$FAILS" --arg v "$V" \
+        '{ts:$ts,task:$k,event:"task_end",dirty:($d==1),tested:($t==1),denied:$den,tool_failures:$f,verdict:$v}' >> "$DIR/${SID}.tasks.jsonl"
     fi
     rm -f "$DIRTY" "$TESTED"; exit 0 ;;
 esac

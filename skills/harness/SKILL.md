@@ -159,7 +159,7 @@ chmod +x .claude/hooks/*.sh; command -v jq >/dev/null || echo "jq 없음: hook �
 
 에이전트를 사람 없이 돌리기 전에만 적용한다. 센서 커버리지 5문항(정본 `references/layers.md` L2)과 실적 조건(비상 정지·무인 3회 성공 포함)은 `_workspace/harness.md` `## 성숙도`에 체크박스로 상주하며 **실사용이 채운다.** 트립와이어·복구 테스트 정의는 `references/layers.md` L4·L6.
 
-**진짜 지표는 하나다.** 모델 호출·토큰·메시지를 세지 마라. **수동 개입 없이 완료되고 수용 가능한 증거를 낸 작업 수**를 센다. 나머지 지표는 계측 소스가 있을 때만 — 계측할 수 없는 지표를 문서에만 적어두는 것이 "안전으로 위장한" 상태다.
+**진짜 지표는 하나다.** 모델 호출·토큰·메시지를 세지 마라. **수동 개입 없이 완료되고 수용 가능한 증거를 낸 작업 수**를 센다. hook이 등록돼 있으면 `${CLAUDE_SKILL_DIR}/assets/scripts/harness_report.sh`가 원장에서 이 수와 완료율·에스컬레이션률·복구시간을 계산한다. 나머지 지표는 계측 소스가 있을 때만 — 계측할 수 없는 지표를 문서에만 적어두는 것이 "안전으로 위장한" 상태다.
 
 ---
 
@@ -170,7 +170,8 @@ chmod +x .claude/hooks/*.sh; command -v jq >/dev/null || echo "jq 없음: hook �
 | 계층별 규범·`enforced_by` 정본·센서 커버리지·루프 의사코드 | `references/layers.md` |
 | settings.json 문법, hook 등록·보안·한계, 서브에이전트, 샌드박스 | `references/enforcement.md` |
 | 실패 클래스 분류, 운영·유지보수 감사, 마이그레이션, 가지치기 | `references/ratchet.md` |
-| 팀·오케스트레이터·핸드오프·에스컬레이션 패킷 | `references/multi-agent.md` |
+| 패턴·서브에이전트 오케스트레이터·핸드오프·에스컬레이션 패킷 | `references/multi-agent.md` |
+| 실행 모드로 **에이전트 팀**(TeamCreate/SendMessage)을 고른 경우에만 | `references/multi-agent-team.md` |
 | 스킬 작성, 트리거·센서 테스트, 체크리스트 극성 규칙 | `references/skill-authoring.md` |
 | 검증 에이전트 (스택 중립) / 웹 프로젝트 경계면 체크리스트 | `references/verifier-agent.md` / `references/verifier-web-checklist.md` |
 | 무인 승격 판정 | `references/layers.md` L2·L6 + `assets/workspace-harness.template.md` 성숙도 |

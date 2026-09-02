@@ -24,6 +24,7 @@ and have been changed; each carries a notice at the end of the file.
       and the deliverables checklist are retained from the original.
 
   skills/harness/references/multi-agent.md
+  skills/harness/references/multi-agent-team.md
       Merged and revised from references/agent-design-patterns.md,
       references/orchestrator-template.md and references/team-examples.md.
 
@@ -61,6 +62,8 @@ from the upstream project:
   skills/harness/assets/**   (hooks: _common.sh, policy_gate.sh, loop_budget.sh,
                               audit_log.sh, test_gate.sh — test_gate.sh was first
                               drafted during the 1.1.0 adversarial usage simulation)
+  skills/harness/assets/scripts/harness_report.sh
+  skills/harness/assets/scripts/run_trigger_eval.sh
   skills/harness/evals/trigger_eval.json
   scripts/check.sh
 
@@ -68,9 +71,16 @@ from the upstream project:
 Conceptual sources
 --------------------------------------------------------------------------
 
-The six-layer architecture, the ratchet principle, the guides-and-sensors
-taxonomy and the control-reliability ladder are drawn from publicly
-published engineering writing, in particular:
+The skill's six-layer structure, build path and decision framework follow
+the paper "Harness Engineering — Agent = Model + Harness: The 6-Layer
+Production Playbook" (Production Agent Engineering Practice 2026, an
+independently compiled note dated August 2026). The paper is not included in
+this repository. By its own statement it is not affiliated with or endorsed
+by Google, OpenAI, Anthropic or HashiCorp. Section citations in the skill
+(e.g. "§III") refer to that paper's section numbers.
+
+The paper itself synthesises publicly published engineering writing, in
+particular:
 
   * Mitchell Hashimoto — "My AI Adoption Journey" (ratchet principle,
     one rule per failure)

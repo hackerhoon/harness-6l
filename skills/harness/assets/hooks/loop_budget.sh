@@ -10,7 +10,7 @@ _HOOK_NAME=loop_budget; . "$(dirname "$0")/_common.sh"
 MAX_SEC="${HARNESS_MAX_SECONDS:-1800}"; MAX_BATCHES="${HARNESS_MAX_BATCHES:-50}"; MAX_TOK="${HARNESS_MAX_TOKENS:-100000}"
 TP=$(jq -r '.transcript_path // ""' <<<"$INPUT")
 NOW=$(date +%s)
-S="$DIR/${KEY}.start"; [ -s "$S" ] || echo "$NOW" > "$S"
+S="$DIR/${KEY}.start"; [ -s "$S" ] || { echo "$NOW" > "$S"; gc_runs; }   # 작업 첫 배치: 시작 시각 기록 + 상태·원장 정리
 START=$(cat "$S"); case "$START" in ''|*[!0-9]*) START=$NOW; echo "$NOW" > "$S";; esac
 ELAPSED=$(( NOW - START ))
 BATCHES=$(bump "$DIR/${KEY}.batches")
