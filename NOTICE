@@ -1,0 +1,80 @@
+harness-6l
+Copyright 2026 hackerhoon
+
+This product includes software developed as a derivative of:
+
+    harness (Claude Code plugin), version 1.2.0
+    Copyright 2025 robin (revfactory)
+    https://github.com/revfactory/harness
+    Licensed under the Apache License, Version 2.0
+
+--------------------------------------------------------------------------
+Statement of changes (Apache-2.0 section 4(b))
+--------------------------------------------------------------------------
+
+harness-6l restructures the original skill around the six-layer harness
+architecture (guides, sensors, agentic loop, memory, permissions,
+observability). The following files are derivative works of the original
+and have been changed; each carries a notice at the end of the file.
+
+  skills/harness/SKILL.md
+      Derived from the original SKILL.md. Rewritten around a five-stage
+      workflow and a decision filter. Trigger phrases, the operations
+      workflow, agent/skill duplication review, follow-up-work support,
+      and the deliverables checklist are retained from the original.
+
+  skills/harness/references/multi-agent.md
+      Merged and revised from references/agent-design-patterns.md,
+      references/orchestrator-template.md and references/team-examples.md.
+
+  skills/harness/references/skill-authoring.md
+      Merged and revised from references/skill-writing-guide.md and
+      references/skill-testing-guide.md.
+
+  skills/harness/references/verifier-agent.md
+      Revised from references/qa-agent-guide.md.
+
+  skills/harness/references/ratchet.md
+      The operations/maintenance procedure and the evolution triggers are
+      derived from the original SKILL.md Phase 7.
+
+Substantive behavioural changes from the original:
+
+  * The unconditional `model: "opus"` requirement is withdrawn. Agents now
+    default to the smallest model that fits the task; only the explicitness
+    of the `model` parameter is retained.
+  * Verifier agents no longer receive write access. A verifier reports
+    failures and does not rewrite the artifact it judges.
+  * Permission boundaries, capability budgets, structured logging and trip
+    wires are added. Every budget line must declare `enforced_by`.
+  * `AGENTS.md` is not produced. Claude Code loads `CLAUDE.md`, not
+    `AGENTS.md`, so `CLAUDE.md` is the guide file.
+  * Checkpoints expire: one per active task, overwrite-as-expiry.
+
+The following files are original works of harness-6l and are not derived
+from the upstream project:
+
+  skills/harness/references/layers.md
+  skills/harness/references/enforcement.md
+  skills/harness/assets/**
+
+--------------------------------------------------------------------------
+Conceptual sources
+--------------------------------------------------------------------------
+
+The six-layer architecture, the ratchet principle, the guides-and-sensors
+taxonomy and the control-reliability ladder are drawn from publicly
+published engineering writing, in particular:
+
+  * Mitchell Hashimoto — "My AI Adoption Journey" (ratchet principle,
+    one rule per failure)
+  * Birgitta Boeckeler / Martin Fowler — guides-and-sensors taxonomy
+  * OpenAI Codex engineering field reports (guide file as system of record,
+    compaction)
+  * LangChain engineering — agent harness anatomy
+  * Lauren Tan / Cursor — converting repeated review comments into
+    structural constraints
+
+These are cited as sources of ideas. No text from them is reproduced here.
+This project is not affiliated with, endorsed by, or sponsored by any of
+the organisations named above.

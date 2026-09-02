@@ -1,0 +1,16 @@
+{
+  "name": "harness-6l-marketplace",
+  "description": "6계층 하네스 엔지니어링 스킬 마켓플레이스",
+  "owner": {
+    "name": "hackerhoon",
+    "url": "https://github.com/hackerhoon"
+  },
+  "plugins": [
+    {
+      "name": "harness-6l",
+      "source": "./",
+      "description": "6계층 에이전트 하네스 엔지니어링 스킬 — 가이드·센서·루프·메모리·권한·관찰가능성. 강제되는 통제와 강제되지 않는 통제를 enforced_by로 구분한다.",
+      "version": "1.0.0"
+    }
+  ]
+}

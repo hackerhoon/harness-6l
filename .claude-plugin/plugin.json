@@ -1,0 +1,31 @@
+{
+  "name": "harness-6l",
+  "displayName": "Harness 6L",
+  "version": "1.0.0",
+  "description": "6계층 에이전트 하네스 엔지니어링 스킬. 가이드·센서·에이전틱 루프·메모리·권한·관찰가능성을 Claude Code에서 실제로 강제되는 수단(settings.json, hooks, 서브에이전트 frontmatter, 샌드박스)에 매핑하고, 강제되지 않는 항목은 enforced_by로 정직하게 표기한다. Six-layer agent harness engineering skill for Claude Code (Korean).",
+  "author": {
+    "name": "hackerhoon",
+    "url": "https://github.com/hackerhoon"
+  },
+  "homepage": "https://github.com/hackerhoon/harness-6l",
+  "repository": "https://github.com/hackerhoon/harness-6l",
+  "license": "Apache-2.0",
+  "keywords": [
+    "harness",
+    "harness-engineering",
+    "agent-harness",
+    "six-layer",
+    "guides-and-sensors",
+    "ratchet",
+    "capability-budget",
+    "permissions",
+    "trip-wire",
+    "observability",
+    "checkpoint",
+    "claude-code",
+    "claude-code-plugin",
+    "meta-skill",
+    "agent-team",
+    "orchestration"
+  ]
+}

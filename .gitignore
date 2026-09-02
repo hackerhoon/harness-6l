@@ -1,0 +1,6 @@
+.DS_Store
+_workspace/
+_workspace_prev/
+*.tgz
+node_modules/
+__pycache__/
