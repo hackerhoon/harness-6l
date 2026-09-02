@@ -32,7 +32,9 @@ and have been changed; each carries a notice at the end of the file.
       references/skill-testing-guide.md.
 
   skills/harness/references/verifier-agent.md
-      Revised from references/qa-agent-guide.md.
+  skills/harness/references/verifier-web-checklist.md
+      Revised from references/qa-agent-guide.md. The web-specific
+      boundary checklist was split into its own file in 1.1.0.
 
   skills/harness/references/ratchet.md
       The operations/maintenance procedure and the evolution triggers are
@@ -56,7 +58,11 @@ from the upstream project:
 
   skills/harness/references/layers.md
   skills/harness/references/enforcement.md
-  skills/harness/assets/**
+  skills/harness/assets/**   (hooks: _common.sh, policy_gate.sh, loop_budget.sh,
+                              audit_log.sh, test_gate.sh — test_gate.sh was first
+                              drafted during the 1.1.0 adversarial usage simulation)
+  skills/harness/evals/trigger_eval.json
+  scripts/check.sh
 
 --------------------------------------------------------------------------
 Conceptual sources

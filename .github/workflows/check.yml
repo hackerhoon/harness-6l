@@ -1,0 +1,32 @@
+name: check
+on:
+  push:
+    branches: [main]
+    tags: ['harness-6l--v*']
+  pull_request:
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 회귀 스위트
+        run: bash scripts/check.sh
+      - name: hook 스크립트 실행 시험 (Linux)
+        run: |
+          set -e
+          T=$(mktemp -d); export CLAUDE_PROJECT_DIR="$T"
+          H=skills/harness/assets/hooks
+          (cd $H && shasum -a 256 -c SHA256SUMS)
+          echo '{"session_id":"ci","hook_event_name":"PostToolUseFailure","tool_name":"Bash","error":"x","is_interrupt":false,"duration_ms":1}' | bash $H/audit_log.sh
+          echo '{"session_id":"ci","hook_event_name":"PostToolUse","tool_name":"Read","tool_response":{}}' | bash $H/audit_log.sh
+          grep -q '"ok":false' "$T/_workspace/runs/ci.jsonl"
+          grep -q '"ok":true'  "$T/_workspace/runs/ci.jsonl"
+          echo '{"session_id":"ci","transcript_path":""}' | bash $H/loop_budget.sh
+          if HARNESS_MAX_BATCHES=0 bash -c 'echo "{\"session_id\":\"ci2\",\"transcript_path\":\"\"}" | bash '"$H"'/loop_budget.sh'; then echo "예산 초과가 차단되지 않음"; exit 1; fi
+          for i in $(seq 1 21); do echo '{"session_id":"ci3","prompt_id":"p1","tool_name":"Edit","tool_input":{}}' | bash $H/policy_gate.sh > "$T/out.json"; done
+          grep -q '"permissionDecision": *"deny"' "$T/out.json" || grep -q '"permissionDecision":"deny"' "$T/out.json"
+          echo '{"session_id":"ci4","prompt_id":"p1","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"src/a.py"}}' | bash $H/test_gate.sh
+          if echo '{"session_id":"ci4","prompt_id":"p1","hook_event_name":"Stop","stop_hook_active":false}' | bash $H/test_gate.sh; then echo "test_gate 미차단"; exit 1; fi
+          echo '{"session_id":"ci5","prompt_id":"p1","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"AWS_SECRET_ACCESS_KEY=abc aws s3 ls"},"tool_response":{}}' | bash $H/audit_log.sh
+          if grep -q 'abc' "$T/_workspace/runs/ci5.jsonl"; then echo "원장에 비밀 유출"; exit 1; fi
+          echo "hook 시험 통과"

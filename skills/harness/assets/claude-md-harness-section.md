@@ -29,7 +29,7 @@ LINT:  {정확한 린트 명령}
 
 **목표:** {한 줄}
 **수용 기준:** {이 작업의 성공을 무엇으로 판정하는가 — 관찰 가능한 형태로}
-**상태 저장소:** `_workspace/` — 체크포인트·래칫 원장·성숙도는 `_workspace/harness.md`
+**상태 저장소:** `_workspace/` — 결정 필터·체크포인트·래칫 원장·성숙도는 `_workspace/harness.md`. `_workspace/runs/`는 `.gitignore`에 넣는다(hook 원장은 증거이자 공격면이다)
 **트리거:** {도메인} 관련 작업 요청 시 `{orchestrator-skill-name}` 스킬을 사용한다. 단순 질문은 직접 응답한다.
 
 **변경 이력:**

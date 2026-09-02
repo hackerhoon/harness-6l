@@ -1,17 +1,17 @@
 {
   "_주의": [
-    "이 파일은 하네스가 사용자에게 '제시'하는 라인이다. 에이전트가 .claude/settings.json에 직접 쓰지 않는다.",
-    ".claude는 protected directory이고 permissions.allow로도 사전승인되지 않는다 — 방침이 아니라 플랫폼 제약이다.",
-    "평가 순서는 deny -> ask -> allow, 첫 매치 확정. 구체성은 순서를 바꾸지 않으므로 deny에 예외를 담을 수 없다.",
-    "경로 앵커: //abs=파일시스템 루트, ~/=홈, /path=이 설정 파일 위치 기준, path=cwd. /Users/... 는 절대경로가 아니다.",
-    "파일 경로 규칙은 Read(...)와 Edit(...)만 조회된다. Write(...)/Glob(...)/MultiEdit(...)/NotebookEdit(...)는 무효다.",
-    "Bash 규칙으로 인자를 제약하는 것은 취약하다. URL 제어는 WebFetch(domain:)와 sandbox로 한다.",
-    "sandbox.strictAllowlist 는 user/managed/--settings 스코프에서만 동작한다. 프로젝트 .claude/settings.json 에 두면 조용히 무시되어, 가지고 있지 않은 네트워크 경계를 가졌다고 믿게 된다. 샌드박스가 필요하면 아래 sandbox 블록을 이 파일에서 잘라내 ~/.claude/settings.json 에 넣는다.",
-    "적용 전에 이 _주의 키를 삭제한다."
+    "이 파일은 하네스가 사용자에게 '제시'하는 라인이다. 에이전트가 .claude/settings.json에 직접 쓰지 않는다 (.claude는 protected directory — 플랫폼 제약).",
+    "제시할 때는 이 JSON과 함께 마크다운 표(라인 / 무엇을 막는가 / enforced_by)를 낸다. JSON은 주석을 담을 수 없다.",
+    "평가 순서 deny -> ask -> allow, 첫 매치 확정. deny에 예외를 담을 수 없다.",
+    "경로 앵커: //abs=파일시스템 루트, ~/=홈, /path=이 설정 파일 위치 기준, path=cwd.",
+    "파일 규칙은 Read(...)와 Edit(...)만 조회된다. Write(...)/Glob(...)/MultiEdit(...)/NotebookEdit(...)는 무효.",
+    "Bash 인자 매칭은 취약하다. rm은 deny 패턴으로 못 막는다 — 'Bash(rm -rf *)'는 rm -fr / rm -r -f / /bin/rm을 통과시킨다(실증). 그래서 rm 전체를 ask로 둔다. 내장 critical-path 가드는 루트·홈·cwd·부모 디렉토리만 지킨다.",
+    "Bash({TEST 명령} *)에는 플래그를 넣지 않는다 — 실행 파일까지만. 'pytest -q *'는 'pytest -x'를 못 잡는다.",
+    "sandbox.strictAllowlist는 user/managed/--settings 스코프에서만 동작한다. 프로젝트 스코프에 두면 조용히 무시된다. 필요하면 sandbox 블록을 ~/.claude/settings.json으로 옮긴다.",
+    "적용 전에 _주의 키와 _sandbox_경고 키를 삭제한다."
   ],
   "permissions": {
     "deny": [
-      "Bash(rm -rf *)",
       "Bash(git push --force *)",
       "Bash(curl *)",
       "Bash(wget *)",
@@ -20,12 +20,16 @@
       "Read(./secrets/**)",
       "Edit(/.claude/settings.json)",
       "Edit(/.claude/settings.local.json)",
-      "Bash(claude config *)"
+      "Bash(claude config *)",
+      "mcp__*"
     ],
     "ask": [
+      "Bash(rm *)",
       "Bash(git push *)",
       "Bash(npm publish *)",
       "Bash(gh pr create *)",
+      "Bash({배포 명령} *)",
+      "Bash({외부 메시지 발송 명령} *)",
       "Agent(model:opus)"
     ],
     "allow": [
@@ -34,18 +38,15 @@
       "Read(/docs/**)",
       "Edit(/src/**)",
       "Edit(/tests/**)",
-      "Bash({TEST 명령} *)",
-      "Bash({LINT 명령} *)"
+      "Bash({TEST 실행파일} *)",
+      "Bash({LINT 실행파일} *)"
     ],
     "defaultMode": "default",
     "disableBypassPermissionsMode": "disable"
   },
-  "_sandbox_경고": "이 블록은 프로젝트 스코프에서 strictAllowlist 가 무효다. 쓰려면 ~/.claude/settings.json 으로 옮긴다.",
+  "_sandbox_경고": "프로젝트 스코프에서 strictAllowlist는 무효다. 쓰려면 ~/.claude/settings.json으로 옮긴다.",
   "sandbox": {
     "enabled": false,
-    "network": {
-      "allowedDomains": [],
-      "strictAllowlist": true
-    }
+    "network": { "allowedDomains": [], "strictAllowlist": true }
   }
 }

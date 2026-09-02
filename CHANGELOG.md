@@ -2,6 +2,52 @@
 
 이 프로젝트는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [1.1.0] - 2026-09-02
+
+2라운드 적대적 검증(논문 원문 대조 · 실사용 시뮬레이션 · 트리거/경제성 · 보안/이식성 4개 검사관 + 독립 재검증)의 결과. 1.0.0의 hook은 **문서대로 설치하면 1분 안에 에이전트를 정지시켰다.** 1.0.0 사용자는 반드시 갱신하라.
+
+### Fixed
+- **[치명] 결정 필터 Q2와 센서 커버리지 Q5의 극성 역전.** "예 = 필요/충족"으로 통일. 두 곳이 서로 다른 검사관에게 독립 적발돼 실패 클래스("질문 극성 ↔ 집계 규칙 불일치")로 규범화(`skill-authoring.md`)
+- **[치명] `loop_budget.sh` 토큰 합산 폭주** — `cache_read`를 턴마다 재합산해 실제 세션에서 예산의 14,903배. 정의를 "유니크 requestId 기준 input+output, 작업 시작 기준선 대비 증가분"으로 교체. 스트리밍 파싱
+- **[치명] 카운터 경합** — 동시 hook에서 10회 중 9회 카운트 손실. append-only로 교체(동시 20건 = 20 검증)
+- **[치명] 원장에 `tool_input` 전문(API 키 포함) 평문 기록.** tool 이름·파일 경로·명령 첫 토큰(환경변수 대입 건너뜀)만 기록. `_workspace/runs/` gitignore 지시
+- **[치명] jq 부재 시 `nojq` SID 공유로 전 세션 자기 DoS.** 3종 모두 경고 + fail-open. 부분 강제 주장 삭제
+- **[치명] 논문 인용 104곳이 원문에서 해석 불가** — 요약본의 §0~§14를 원문 로마자 §I~§XVIII로 재매핑, 자기 절 참조와 구분
+- `Bash(rm -rf *)` deny가 `rm -fr`·`rm -r -f`를 통과시킴(실증) → `rm` 전체를 ask로. "이중 강제" 표기 철회
+- `audit_log.sh`가 `PermissionDenied`를 기록하지 않아 "권한 경계 차단 1회" 조건에 데이터 소스가 없었음
+- hook의 per-task 예산이 per-session으로 구현되어 리셋 경로 없음 → `session_id-prompt_id` 키로 작업 단위, 다음 프롬프트에서 자연 리셋
+- 입력 정제 — `session_id`의 `../` 경로 탈출, NUL 바이트 증거 위장(`Read\0BAD`→`Read_BAD`로 흔적 보존)
+- `CLAUDE_PROJECT_DIR` 미설정 시 cwd에 상태 분열 → 경고 + fail-open
+- 원문 `agentic_loop`의 `retryable` 분기 소실 — 재시도 불가 실패는 예산 소모 없이 즉시 에스컬레이션
+- GROUND에서 테스트 exit 1(빨간 상태)의 진행/중단 규정 없음 → "명령이 올바르면 진행·기록, 명령 자체가 틀리면 중단"
+- hook 강제성 판정 기준이 "설치"로만 쓰여 구축 완료 시점에 `enforced_by: hook` 허위 표기 가능 → "설치 + 사용자 등록" 이후로
+- 핸드오프 5번째 필드 "기한(deadline)" 복구, 검증자 실패 보고(6필드)와 명칭 분리
+
+### Added
+- **`test_gate.sh`** — 소스 수정 후 테스트 미실행 시 Stop hook이 완료 차단. 실패 클래스 "센서 미실행 / 허위 완료 보고" 신설(스킬 트리거 (6)의 대표 시나리오였는데 분류표에 없었다)
+- **`assets/hooks/SHA256SUMS`** 무결성 확인 + "저장소가 공급하는 hook은 신뢰 게이트 없이 실행된다" 경고
+- **`evals/trigger_eval.json`** — should 12 / near-miss 12 트리거 회귀 스위트(공식 마켓플레이스 관례 형식)
+- **description 부정 예시** — update-config / init / claude-code-guide / security-review / loop 경계 명시, 영어 앵커. 예측 오분류 8/24 → 2/24
+- `scripts/check.sh` 회귀 스위트(70+ 항목) + GitHub Actions(`check.yml`, Linux에서 hook 실기)
+- `references/verifier-web-checklist.md` — Next.js/React 전용 체크리스트 분리(파이썬 프로젝트에서 ~200줄 과잉 로딩 해소)
+- `harness.md` 템플릿에 `## 결정 필터`, `## 가이드 가지치기`, 비상 정지·무인 3회 성공·규칙 5개+ 조건, 최근 센서 관측
+- `enforcement.md` 「hook 보안·한계」절 — 이전 판이 침묵한 11항목 전부 고지
+- 서두에 실증 근거 1줄과 §XV.A 반증("하네스에 코드 직접 쓰기보다 더 많은 시간")
+
+### Changed
+- SKILL.md 255→182줄. 강제성 표·마이그레이션·무인 게이트·계측 소스 표·테스트 시나리오를 reference/템플릿으로 이관(정본 1곳 원칙)
+- 토큰 예산 정의: "청구액"도 "컨텍스트 크기"도 아닌 "새로 처리된 입력 + 생성 출력"
+- 요구사항 명시: bash 4+, jq, Claude Code 2.1.196+. Alpine/ash/dash·네이티브 Windows 미지원
+- 검증 환경 표기 2.1.252~2.1.258 / macOS + Debian·Alpine
+- frontmatter `allowed-tools` 선언은 보류 — 사용자 스코프/플러그인 양쪽에서 `${CLAUDE_SKILL_DIR}` 치환이 확인될 때까지
+
+### 다음 라운드 후보 (이번 릴리스 범위 밖 — 논문 §XIV(한계).A "최소 인프라")
+- `HARNESS_FAIL_CLOSED=1` opt-in — jq 부재 시 fail-open 대신 차단
+- `_workspace/runs/` 원장 로테이션·상태 파일 자동 정리
+- "진짜 지표"(작업 단위 완료 수) 계측 자산 — `TaskCompleted` hook 예시
+- `multi-agent.md` 팀 모드 ~200줄의 조건부 분리
+- `claude plugin eval` 게이트가 열리면 `evals/trigger_eval.json` 실행 배선
+
 ## [1.0.0] - 2026-09-02
 
 `harness-6l`의 첫 릴리스. [revfactory/harness](https://github.com/revfactory/harness) 1.2.0의 파생 저작물이며, 6계층 하네스 아키텍처로 재구성했습니다. 전체 파생 관계와 변경 고지는 [`NOTICE`](NOTICE)에 있습니다.

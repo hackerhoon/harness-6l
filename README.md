@@ -56,6 +56,8 @@ claude plugin marketplace add hackerhoon/harness-6l
 
 설치하면 `/harness-6l:harness` 로 호출된다.
 
+**요구사항:** Claude Code 2.1.196+ (`CLAUDE_PROJECT_DIR`), 번들 hook을 쓰려면 **bash 3.2+ 와 jq**. Alpine/ash/dash, 네이티브 Windows에서는 hook이 동작하지 않는다(스킬 본체는 동작). 검증 환경은 macOS + Debian·Alpine(2.1.252~2.1.258).
+
 > 원본 `harness` 플러그인을 함께 설치해 두었다면 트리거 문구가 겹친다. `~/.claude/settings.json`의 `enabledPlugins`에서 한쪽을 `false`로 두는 것을 권한다.
 
 ---
@@ -93,23 +95,31 @@ skills/harness/
 │   ├── ratchet.md                실패를 영구 인프라로 전환하는 절차 · 운영/유지보수
 │   ├── multi-agent.md            팀 · 오케스트레이터 · 타입 핸드오프 · 독립 검증자
 │   ├── skill-authoring.md        스킬 작성 · 센서로서의 스킬 평가 · 트리거 회귀
-│   └── verifier-agent.md         검증 에이전트 — 경계면 교차 비교, 실제 버그 7건
-└── assets/
-    ├── claude-md-harness-section.md
-    ├── settings-permissions.template.json
-    ├── workspace-harness.template.md
-    └── hooks/{policy_gate,loop_budget,audit_log}.sh
+│   ├── verifier-agent.md         검증 에이전트 — 스택 중립 골격, 실제 버그 7건
+│   └── verifier-web-checklist.md 웹(Next.js/React) 경계면 체크리스트 — 웹 프로젝트에서만 로드
+├── assets/
+│   ├── claude-md-harness-section.md
+│   ├── settings-permissions.template.json
+│   ├── workspace-harness.template.md
+│   └── hooks/{_common,policy_gate,loop_budget,audit_log,test_gate}.sh + SHA256SUMS
+└── evals/trigger_eval.json       트리거 회귀 스위트 (should 12 / near-miss 12)
 ```
 
-hook 3종은 **선택**이다. 설치하지 않으면 해당 예산은 `enforced_by: none`이며, 스킬은 상태 파일에 그렇게 적는다.
+저장소 루트의 `scripts/check.sh`는 70여 항목의 회귀 스위트다. 적대적 검증에서 확정된 수정이 되돌아가지 않았는지 검사하며 CI(`.github/workflows/check.yml`)가 push마다 Linux에서 hook까지 실기한다.
+
+hook 4종은 **선택**이다. 설치하지 않으면 해당 예산은 `enforced_by: none`이며, 스킬은 상태 파일에 그렇게 적는다.
 
 | 스크립트 | 이벤트 | 강제하는 것 |
 |---|---|---|
 | `policy_gate.sh` | PreToolUse | 작업당 쓰기 한도 초과 시 `deny`(쓰기 동결) |
 | `loop_budget.sh` | PostToolBatch | 시간·배치·토큰 초과 시 `exit 2`로 루프 중단 |
-| `audit_log.sh` | PostToolUse **+ PostToolUseFailure** | 감사 원장 — 완료율·복구시간의 유일한 데이터 소스 |
+| `audit_log.sh` | PostToolUse + PostToolUseFailure + PermissionDenied | 감사 원장 — 완료율·복구시간·권한 차단의 유일한 데이터 소스 |
+| `test_gate.sh` | PostToolUse + Stop | 소스를 수정하고 테스트를 안 돌린 채 완료 보고하면 **차단** |
 
-`audit_log.sh`를 `PostToolUse` 한쪽에만 걸면 안 된다. 그 이벤트는 도구가 **성공**했을 때만 발화하므로 원장의 `ok`가 항상 true가 된다.
+- 카운터는 `session_id-prompt_id` 키로 **작업(사용자 프롬프트 1턴) 단위**다. 다음 프롬프트에서 자연 리셋된다.
+- 토큰 예산은 "유니크 요청의 input + output" 증가분이다. 캐시 필드를 세면 실제 세션에서 예산의 14,000배가 나온다(1.0.0의 결함).
+- `jq`가 없거나 `CLAUDE_PROJECT_DIR`가 없으면 **경고를 내고 통과시킨다(fail-open)**. 그 환경에서 hook 예산의 `enforced_by`는 `none`이다. 부분 강제는 없다.
+- **hook은 설치만으로 발화하지 않는다.** 사용자가 `settings.json`에 hooks 블록을 등록해야 한다. 등록은 에이전트가 못 하므로 **구축 완료 시점의 hook 예산은 항상 `none`**이고, 스킬은 그렇게 적는다.
 
 ---
 
@@ -124,8 +134,24 @@ hook 3종은 **선택**이다. 설치하지 않으면 해당 예산은 `enforced
 | 관찰가능성 | 변경 이력 테이블 | 구조화 원장 · 트립와이어 6종 · 계측 가능성별 지표 구분 |
 | 체크포인트 | 중간 산출물 **보존** | 활성 작업당 **최신 1개** — 덮어쓰기가 곧 만료 |
 | 확장 게이트 | 없음 | **무인 운영 승격**에만 게이트. 팀 생성은 즉시 |
+| 완료 보고 | 신뢰 | `test_gate.sh` — 수정 후 테스트 미실행이면 Stop hook이 **차단** |
+| 트리거 | 긍정 예시만 | 부정 예시·빌트인 경계·영어 앵커. 회귀 스위트 24건 파일화 |
 
 전체 변경 내역은 [`NOTICE`](NOTICE) 참조.
+
+---
+
+## 보안
+
+이 스킬은 자기를 "1차 보안 경계(L5)"라고 부른다. 그래서 2라운드 검증에서 보안 검토를 받았고, 다음이 그 결과다.
+
+- **원장에 비밀을 쓰지 않는다.** hook은 `tool_input` 전문을 기록하지 않는다 — 도구 이름, 파일 경로, 명령의 첫 실행 파일명(환경변수 대입 `KEY=…`는 건너뜀)만 남긴다. 그래도 `_workspace/runs/`는 **반드시 `.gitignore`에 넣는다.** 스킬이 3단계에서 자동으로 추가한다.
+- **hook은 사용자 권한으로, 워크스페이스 신뢰 없이 실행된다.** 남의 저장소를 열 때 `.claude/hooks/`에 이 스킬의 파일명을 흉내 낸 스크립트가 있을 수 있다. `assets/hooks/SHA256SUMS`로 무결성을 확인하고, 모르는 저장소의 hook은 **열기 전에 읽어라.**
+- **입력은 정제된다.** `session_id`의 `../` 경로 탈출, NUL 바이트 위장(`Read\0BAD`)은 파일명·원장에 도달하지 못한다.
+- **`rm`은 패턴으로 못 막는다.** `Bash(rm -rf *)` deny는 `rm -fr`을 통과시킨다(실증). 템플릿은 `rm` 전체를 ask로 두고, 내장 critical-path 가드(루트·홈·cwd)에 나머지를 맡긴다.
+- **fail-open은 설계다.** 강제할 수 없는 상황에서 세션을 벽돌로 만드는 대신 경고하고 통과시킨다. 그 대가로 `enforced_by`가 정직해야 한다 — 그것이 이 스킬의 중심 장치다.
+
+상세는 `references/enforcement.md`의 「hook 보안·한계」.
 
 ---
 
@@ -133,8 +159,11 @@ hook 3종은 **선택**이다. 설치하지 않으면 해당 예산은 `enforced
 
 - **스코어카드 6지표 중 네이티브 데이터 소스가 있는 것은 2개**다(에스컬레이션률, 가이드 증가율). 재작업률과 작업당 비용은 OTel을 켜거나 `claude -p`로 감싸야 하고, **완료율과 복구시간은 hook 원장을 설치해야만 존재한다.** 대화형 transcript에는 비용 필드가 없다.
 - **비용 예산은 대화형에서 강제되지 않는다.** 토큰 프록시로 근사할 뿐이다.
-- hook 3종은 `jq`에 의존한다. 없으면 `policy_gate.sh`는 **fail-open**이며(경고 출력), 그 환경에서 쓰기 한도의 `enforced_by`는 `none`이다.
-- 검증 기준은 **Claude Code 2.1.252 / macOS**다. 권한·hook 문법은 버전에 따라 달라질 수 있다.
+- hook 4종은 `bash 3.2+`와 `jq`에 의존한다. 없으면 전부 **fail-open**(경고 출력)이며 그 환경에서 `enforced_by`는 `none`이다.
+- `loop_budget.sh`의 배치 카운터는 도구 호출 수가 아니라 도구 **배치** 수다. 한 배치에 여러 도구가 들어갈 수 있다.
+- 트립와이어 "센서 통과율 하락"은 도구 실패율의 프록시일 뿐 센서 판정을 구분하지 못한다.
+- `claude plugin eval`은 early-access라 `evals/trigger_eval.json`은 파일로만 존재한다. 실행은 게이트가 열리면.
+- 검증 기준은 **Claude Code 2.1.252~2.1.258 / macOS + Debian·Alpine**이다. 권한·hook 문법은 버전에 따라 달라질 수 있다.
 - 스킬 본문은 **한국어**다.
 
 ---

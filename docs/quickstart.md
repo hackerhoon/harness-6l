@@ -18,12 +18,12 @@
 스킬은 먼저 다섯 문항을 묻는다.
 
 1. 같은 워크플로를 **반복** 실행하는가?
-2. 에이전트가 조용히 틀린 결과를 내면 **알아차리겠는가?**
+2. 에이전트가 조용히 틀린 결과를 내면 **문제가 되는가**(알아차리지 못한 채 넘어갈 수 있는가)?
 3. 다음 세션에 같은 컨텍스트를 **다시 설명**해야 하는가?
 4. 실수가 **외부 결과**(배포·발송·삭제)를 만드는가?
 5. **이 작업의 성공을 무엇으로 판정하는가? 그 판정은 관찰 가능한가?**
 
-1~4가 전부 아니오면 하네스를 만들지 않는다. 5번에 답할 수 없으면 시작하지 않는다 — 잘못 정의된 목표를 둘러싼 완벽한 하네스는 신뢰성 있는 쓰레기를 만든다.
+모든 문항은 "예 = 그 계층이 필요하다"다. 1~4가 전부 아니오면 하네스를 만들지 않는다. 5번에 답할 수 없으면 시작하지 않는다 — 잘못 정의된 목표를 둘러싼 완벽한 하네스는 신뢰성 있는 쓰레기를 만든다.
 
 ## 산출물
 
@@ -44,21 +44,21 @@
 
 ## hook 설치 (선택)
 
-예산을 문서가 아니라 **실제로** 강제하려면:
+예산을 문서가 아니라 **실제로** 강제하려면 hook을 설치한다. 요구사항: bash 3.2+, jq, Claude Code 2.1.196+.
 
-스킬이 3단계(WIRE)에서 번들 경로를 치환해 복사해 준다. 직접 하려면 설치 경로에서 복사한다:
+스킬이 3단계(WIRE)에서 `${CLAUDE_SKILL_DIR}`를 치환해 설치한다 — 다섯 파일(`_common.sh` 포함)이 한 세트이고, `SHA256SUMS`로 무결성을 대조하며, `.gitignore`에 `_workspace/runs/`를 넣는다. 정확한 스니펫과 `settings.json` 등록 JSON은 `references/enforcement.md` 「hooks」.
 
-```bash
-HOOKS=$(ls -d ~/.claude/plugins/cache/harness-6l-marketplace/harness-6l/*/skills/harness/assets/hooks | tail -1)
-mkdir -p .claude/hooks
-cp "$HOOKS"/*.sh .claude/hooks/
-chmod +x .claude/hooks/*.sh
-command -v jq >/dev/null || echo "jq 없음: 쓰기 한도·토큰 예산은 enforced_by=none"
-```
+| 스크립트 | 등록 이벤트 |
+|---|---|
+| `policy_gate.sh` | PreToolUse (`Edit\|Write\|NotebookEdit`) |
+| `loop_budget.sh` | PostToolBatch |
+| `audit_log.sh` | PostToolUse **+ PostToolUseFailure + PermissionDenied** |
+| `test_gate.sh` | PostToolUse (`Bash\|Edit\|Write\|NotebookEdit`) + Stop + SubagentStop |
 
-등록 JSON은 `references/enforcement.md`에 있다. `audit_log.sh`는 **`PostToolUse`와 `PostToolUseFailure` 양쪽에** 등록한다.
-
-설치하지 않으면 해당 예산의 `enforced_by`는 `none`이다. 스킬은 그것을 숨기지 않고 `_workspace/harness.md`에 적는다.
+세 가지를 잊지 마라:
+- `audit_log.sh`는 세 이벤트 모두에 건다. 하나라도 빠지면 실패율 또는 권한 차단이 원장에 남지 않는다.
+- **hook은 설치만으로 발화하지 않는다.** `settings.json`에 hooks 블록을 등록해야 하며 그건 사용자 몫이다. 등록 전까지 그 예산의 `enforced_by`는 `none`이고 스킬은 그렇게 적는다.
+- `_workspace/runs/`는 gitignore 대상이다. 원장은 증거이자 공격면이다.
 
 ## 실패가 나면
 

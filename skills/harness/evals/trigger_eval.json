@@ -1,0 +1,27 @@
+[
+  {"query": "이 프로젝트에 하네스 구축해줘", "should_trigger": true},
+  {"query": "지난번에 만든 하네스에 리서치 에이전트 하나만 더 추가해줘", "should_trigger": true},
+  {"query": "에이전트가 자꾸 테스트를 안 돌리고 '완료했습니다'라고 보고해. 다시는 못 그러게 만들어줘", "should_trigger": true},
+  {"query": "우리 배포 에이전트 무인으로 돌려도 될까? 판단해줘", "should_trigger": true},
+  {"query": ".claude/agents/랑 오케스트레이터 문서가 안 맞는 것 같은데 동기화해줘", "should_trigger": true},
+  {"query": "이 에이전트한테 예산이랑 권한 경계 좀 세워줘", "should_trigger": true},
+  {"query": "코드리뷰 에이전트 만들고, 걔가 쓸 스킬도 같이 만들어줘", "should_trigger": true},
+  {"query": "harness engineering 좀 해줘, 이 레포에", "should_trigger": true},
+  {"query": "Set up a six-layer agent harness for this repo, with permission boundaries", "should_trigger": true},
+  {"query": "지금 .claude 폴더 상태 점검하고 뭐가 빠졌는지 알려줘", "should_trigger": true},
+  {"query": "CLAUDE.md에 규칙을 계속 추가하는데 에이전트가 안 지켜. 어떻게 해야 진짜로 강제되지?", "should_trigger": true},
+  {"query": "이 반복 워크플로를 에이전트한테 맡기고 싶은데 뭐가 필요한지 설계해줘", "should_trigger": true},
+
+  {"query": "이 프로젝트 CLAUDE.md 좀 정리해줘", "should_trigger": false},
+  {"query": "테스트 커버리지 80%까지 올려줘", "should_trigger": false},
+  {"query": "npm 명령어 허용 권한 추가해줘", "should_trigger": false},
+  {"query": "에이전트 팀 만들어줘, 3개 병렬로 돌리게", "should_trigger": false},
+  {"query": "체크포인트에서 학습 재개하는 코드 짜줘", "should_trigger": false},
+  {"query": "이 레포 감사해줘 — 보안 취약점 있는지", "should_trigger": false},
+  {"query": "커밋할 때마다 lint 돌리는 훅 설정해줘", "should_trigger": false},
+  {"query": "Claude Code에서 PreToolUse hook은 언제 발화해?", "should_trigger": false},
+  {"query": "이 에이전트 왜 자꾸 틀려? 한 번만 디버깅 좀 해줘", "should_trigger": false},
+  {"query": "OTel로 관찰가능성 대시보드 하나 만들어줘", "should_trigger": false},
+  {"query": "API 호출 비용이 예산 초과라 좀 줄여줘", "should_trigger": false},
+  {"query": "이 스킬 description 문구만 좀 다듬어줘", "should_trigger": false}
+]
